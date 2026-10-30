@@ -1,0 +1,6 @@
+{
+  "name": "TaskFlow - State-Driven Task Manager",
+  "description": "A pure vanilla JavaScript state-driven task management application featuring unidirectional data flow, full CRUD operations, DOM event delegation, real-time search, and local persistence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

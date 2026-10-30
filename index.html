@@ -1,0 +1,1965 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskFlow - State-Driven Task Manager</title>
+  <meta name="description" content="A pure vanilla JavaScript state-driven task management application featuring unidirectional data flow, full CRUD operations, DOM event delegation, real-time search, and local persistence." />
+  <meta property="og:title" content="TaskFlow - State-Driven Task Manager" />
+  <meta property="og:description" content="A pure vanilla JavaScript state-driven task management application featuring unidirectional data flow, full CRUD operations, DOM event delegation, real-time search, and local persistence." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <!-- Font styling: Inter / Plus Jakarta Sans fallback + JetBrains Mono for tabular data -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* ==========================================================================
+       CSS Design System & Variables (Light & Dark Theme)
+       ========================================================================== */
+    :root {
+      /* Typography */
+      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+      /* Dark Theme (Default) */
+      --color-canvas: #090d16;
+      --color-surface: #111827;
+      --color-surface-elevated: #162032;
+      --color-surface-hover: #1e2c44;
+      --color-border: #1f2d44;
+      --color-border-subtle: #172235;
+      --color-border-focus: #3b82f6;
+
+      --color-text-primary: #f1f5f9;
+      --color-text-secondary: #94a3b8;
+      --color-text-muted: #64748b;
+      --color-text-inverted: #090d16;
+
+      --color-accent: #3b82f6;
+      --color-accent-hover: #2563eb;
+      --color-accent-soft: rgba(59, 130, 246, 0.12);
+      --color-accent-contrast: #ffffff;
+
+      --color-success: #10b981;
+      --color-success-soft: rgba(16, 185, 129, 0.12);
+      --color-danger: #ef4444;
+      --color-danger-soft: rgba(239, 68, 68, 0.12);
+      --color-danger-hover: #dc2626;
+      --color-warning: #f59e0b;
+
+      --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.35);
+      --shadow-card: 0 4px 16px -2px rgba(0, 0, 0, 0.45);
+      --shadow-modal: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.6);
+
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-full: 9999px;
+
+      --transition-timing: cubic-bezier(0.16, 1, 0.3, 1);
+      --transition-speed: 180ms;
+    }
+
+    /* Light Theme Palette */
+    [data-theme="light"] {
+      --color-canvas: #f8fafc;
+      --color-surface: #ffffff;
+      --color-surface-elevated: #f1f5f9;
+      --color-surface-hover: #e2e8f0;
+      --color-border: #e2e8f0;
+      --color-border-subtle: #edf2f7;
+      --color-border-focus: #2563eb;
+
+      --color-text-primary: #0f172a;
+      --color-text-secondary: #475569;
+      --color-text-muted: #94a3b8;
+      --color-text-inverted: #ffffff;
+
+      --color-accent: #2563eb;
+      --color-accent-hover: #1d4ed8;
+      --color-accent-soft: rgba(37, 99, 235, 0.08);
+      --color-accent-contrast: #ffffff;
+
+      --color-success: #059669;
+      --color-success-soft: rgba(5, 150, 105, 0.08);
+      --color-danger: #dc2626;
+      --color-danger-soft: rgba(220, 38, 38, 0.08);
+      --color-danger-hover: #b91c1c;
+      --color-warning: #d97706;
+
+      --shadow-subtle: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+      --shadow-card: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
+      --shadow-modal: 0 20px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
+    }
+
+    /* Reset & Base Elements */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      min-height: 100vh;
+      background-color: var(--color-canvas);
+      color: var(--color-text-primary);
+      font-family: var(--font-sans);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Tabular numbers for all telemetry and stats */
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+      font-family: var(--font-mono);
+    }
+
+    /* Accessibility focus rings */
+    :focus-visible {
+      outline: 2px solid var(--color-border-focus);
+      outline-offset: 2px;
+    }
+
+    button, input, select {
+      font: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      background: none;
+    }
+
+    /* ==========================================================================
+       Layout & Header (3-Zone Top Bar Contract)
+       ========================================================================== */
+    .app-shell {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 4rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      padding: 0.875rem 1.25rem;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .top-bar-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      text-decoration: none;
+      color: var(--color-text-primary);
+      font-weight: 700;
+      font-size: 1.125rem;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+      shrink: 0;
+    }
+
+    .brand-icon-box {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--color-accent);
+      color: var(--color-accent-contrast);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .top-bar-stats {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--color-text-secondary);
+      white-space: nowrap;
+    }
+
+    .top-bar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+      shrink: 0;
+    }
+
+    .theme-toggle-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--color-surface-elevated);
+      border: 1px solid var(--color-border);
+      color: var(--color-text-secondary);
+      transition: all var(--transition-speed) var(--transition-timing);
+    }
+
+    .theme-toggle-btn:hover {
+      background: var(--color-surface-hover);
+      color: var(--color-text-primary);
+    }
+
+    /* ==========================================================================
+       Metrics & Completion Progress Card
+       ========================================================================== */
+    .overview-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.5rem;
+      box-shadow: var(--shadow-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .overview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .overview-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .overview-stat-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+    }
+
+    .stat-metric {
+      color: var(--color-text-primary);
+      font-weight: 700;
+    }
+
+    .progress-bar-track {
+      width: 100%;
+      height: 8px;
+      background: var(--color-surface-elevated);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      border: 1px solid var(--color-border-subtle);
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--color-accent), var(--color-success));
+      border-radius: var(--radius-full);
+      transition: width 300ms var(--transition-timing);
+      width: 0%;
+    }
+
+    .stat-summary-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .stat-pill {
+      background: var(--color-surface-elevated);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      padding: 0.625rem 0.875rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+
+    .stat-pill-label {
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+      font-weight: 500;
+    }
+
+    .stat-pill-value {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--color-text-primary);
+    }
+
+    /* ==========================================================================
+       Task Creation Form
+       ========================================================================== */
+    .create-form-container {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.5rem;
+      box-shadow: var(--shadow-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .create-form {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .create-input-wrapper {
+      position: relative;
+      flex: 1;
+    }
+
+    .create-input {
+      width: 100%;
+      height: 44px;
+      background: var(--color-canvas);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 0 1rem;
+      font-size: 0.9375rem;
+      color: var(--color-text-primary);
+      transition: border-color var(--transition-speed) var(--transition-timing);
+    }
+
+    .create-input:focus {
+      border-color: var(--color-border-focus);
+      outline: none;
+    }
+
+    .create-input::placeholder {
+      color: var(--color-text-muted);
+    }
+
+    .btn-primary {
+      height: 44px;
+      padding: 0 1.25rem;
+      background: var(--color-accent);
+      color: var(--color-accent-contrast);
+      font-weight: 600;
+      font-size: 0.875rem;
+      border-radius: var(--radius-md);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      white-space: nowrap;
+      transition: background-color var(--transition-speed) var(--transition-timing), transform 100ms;
+    }
+
+    .btn-primary:hover {
+      background: var(--color-accent-hover);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+
+    .input-error-msg {
+      font-size: 0.8125rem;
+      color: var(--color-danger);
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      min-height: 1.25rem;
+    }
+
+    .input-error-msg:empty {
+      display: none;
+    }
+
+    /* ==========================================================================
+       Filter & Search Toolbar
+       ========================================================================== */
+    .toolbar-container {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.875rem;
+    }
+
+    /* Segmented Filter Control (Not static pills - interactive tabs) */
+    .filter-tabs {
+      display: inline-flex;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .filter-tab-btn {
+      padding: 0.4375rem 0.875rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      border-radius: calc(var(--radius-md) - 3px);
+      color: var(--color-text-secondary);
+      transition: all var(--transition-speed) var(--transition-timing);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      white-space: nowrap;
+    }
+
+    .filter-tab-btn:hover {
+      color: var(--color-text-primary);
+      background: var(--color-surface-hover);
+    }
+
+    .filter-tab-btn.is-active {
+      background: var(--color-surface-elevated);
+      color: var(--color-text-primary);
+      font-weight: 600;
+      box-shadow: var(--shadow-subtle);
+    }
+
+    .filter-count-badge {
+      font-size: 0.75rem;
+      opacity: 0.8;
+      font-family: var(--font-mono);
+    }
+
+    .toolbar-search-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex: 1;
+      justify-content: flex-end;
+      min-width: 260px;
+    }
+
+    .search-box {
+      position: relative;
+      flex: 1;
+      max-width: 280px;
+    }
+
+    .search-input {
+      width: 100%;
+      height: 36px;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-md);
+      padding: 0 2rem 0 2rem;
+      font-size: 0.8125rem;
+      color: var(--color-text-primary);
+      transition: border-color var(--transition-speed) var(--transition-timing);
+    }
+
+    .search-input:focus {
+      border-color: var(--color-border-focus);
+      outline: none;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.625rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--color-text-muted);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-clear-btn {
+      position: absolute;
+      right: 0.5rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--color-text-muted);
+      width: 20px;
+      height: 20px;
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: color var(--transition-speed);
+    }
+
+    .search-clear-btn:hover {
+      color: var(--color-text-primary);
+    }
+
+    .btn-secondary {
+      height: 36px;
+      padding: 0 0.875rem;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      color: var(--color-text-secondary);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      border-radius: var(--radius-md);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      white-space: nowrap;
+      transition: all var(--transition-speed) var(--transition-timing);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: var(--color-surface-hover);
+      color: var(--color-text-primary);
+      border-color: var(--color-border);
+    }
+
+    .btn-secondary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary.btn-danger:hover:not(:disabled) {
+      background: var(--color-danger-soft);
+      color: var(--color-danger);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    /* ==========================================================================
+       Task List & Task Items (DOM Event Delegation Target)
+       ========================================================================== */
+    .task-list-wrapper {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-subtle);
+      overflow: hidden;
+    }
+
+    .task-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .task-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.875rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--color-border-subtle);
+      transition: background-color var(--transition-speed) var(--transition-timing),
+                  opacity 200ms var(--transition-timing),
+                  transform 200ms var(--transition-timing);
+    }
+
+    .task-item:last-child {
+      border-bottom: none;
+    }
+
+    .task-item:hover {
+      background-color: var(--color-surface-elevated);
+    }
+
+    /* Exit animation on delete */
+    .task-item.is-deleting {
+      opacity: 0;
+      transform: translateX(24px);
+    }
+
+    /* Checkbox Button */
+    .task-toggle-btn {
+      width: 22px;
+      height: 22px;
+      margin-top: 2px;
+      border-radius: var(--radius-sm);
+      border: 2px solid var(--color-border);
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-accent-contrast);
+      shrink: 0;
+      transition: all var(--transition-speed) var(--transition-timing);
+    }
+
+    .task-toggle-btn:hover {
+      border-color: var(--color-accent);
+      background: var(--color-accent-soft);
+    }
+
+    .task-item.is-completed .task-toggle-btn {
+      background: var(--color-success);
+      border-color: var(--color-success);
+    }
+
+    .task-item.is-completed .task-toggle-btn:hover {
+      background: #059669;
+      border-color: #059669;
+    }
+
+    .task-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3125rem;
+    }
+
+    .task-title {
+      color: var(--color-text-primary);
+      font-size: 0.9375rem;
+      line-height: 1.45;
+      word-break: break-word;
+      user-select: text;
+      cursor: pointer;
+    }
+
+    .task-item.is-completed .task-title {
+      color: var(--color-text-muted);
+      text-decoration: line-through;
+    }
+
+    /* Search match highlighting */
+    mark {
+      background: rgba(245, 158, 11, 0.25);
+      color: inherit;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+
+    /* Unboxed metadata row with typographic separators (anti-slop rule) */
+    .task-metadata {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+    }
+
+    .task-metadata-sep {
+      color: var(--color-border);
+    }
+
+    .task-status-text {
+      color: var(--color-text-secondary);
+      font-weight: 500;
+    }
+
+    .task-item.is-completed .task-status-text {
+      color: var(--color-success);
+    }
+
+    /* Inline editing view */
+    .task-inline-edit {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 100%;
+    }
+
+    .inline-edit-input {
+      width: 100%;
+      height: 38px;
+      background: var(--color-canvas);
+      border: 1px solid var(--color-border-focus);
+      border-radius: var(--radius-sm);
+      padding: 0 0.75rem;
+      font-size: 0.9375rem;
+      color: var(--color-text-primary);
+    }
+
+    .inline-edit-input:focus {
+      outline: none;
+    }
+
+    .inline-edit-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-sm {
+      height: 28px;
+      padding: 0 0.625rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .btn-save {
+      background: var(--color-accent);
+      color: var(--color-accent-contrast);
+    }
+
+    .btn-save:hover {
+      background: var(--color-accent-hover);
+    }
+
+    .btn-cancel {
+      background: var(--color-surface-hover);
+      color: var(--color-text-secondary);
+    }
+
+    .btn-cancel:hover {
+      color: var(--color-text-primary);
+    }
+
+    /* Task action button group (Edit & Delete) */
+    .task-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      opacity: 0.7;
+      transition: opacity var(--transition-speed);
+      shrink: 0;
+    }
+
+    .task-item:hover .task-actions {
+      opacity: 1;
+    }
+
+    .icon-action-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-text-muted);
+      transition: all var(--transition-speed) var(--transition-timing);
+    }
+
+    .icon-action-btn:hover {
+      background: var(--color-surface-hover);
+      color: var(--color-text-primary);
+    }
+
+    .icon-action-btn.btn-delete:hover {
+      background: var(--color-danger-soft);
+      color: var(--color-danger);
+    }
+
+    /* Empty states */
+    .empty-state {
+      padding: 3.5rem 1.5rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      color: var(--color-text-secondary);
+    }
+
+    .empty-state-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      background: var(--color-surface-elevated);
+      border: 1px solid var(--color-border);
+      color: var(--color-text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 0.25rem;
+    }
+
+    .empty-state-heading {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--color-text-primary);
+    }
+
+    .empty-state-text {
+      font-size: 0.875rem;
+      color: var(--color-text-muted);
+      max-width: 340px;
+    }
+
+    /* ==========================================================================
+       Keyboard Shortcuts & Accessibility Info Bar
+       ========================================================================== */
+    .shortcuts-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border-subtle);
+      border-radius: var(--radius-md);
+      font-size: 0.75rem;
+      color: var(--color-text-muted);
+    }
+
+    .kbd-shortcut {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    kbd {
+      background: var(--color-surface-elevated);
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      color: var(--color-text-primary);
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+    }
+
+    /* ==========================================================================
+       In-App Confirmation Modal (No window.alert / window.confirm)
+       ========================================================================== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease-out;
+    }
+
+    .modal-overlay.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: var(--shadow-modal);
+      display: flex;
+      flex-direction: column;
+      gap: 1.125rem;
+      transform: scale(0.96);
+      transition: transform 180ms var(--transition-timing);
+    }
+
+    .modal-overlay.is-visible .modal-card {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .modal-icon-alert {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      background: var(--color-danger-soft);
+      color: var(--color-danger);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      shrink: 0;
+    }
+
+    .modal-title {
+      font-size: 1.0625rem;
+      font-weight: 700;
+      color: var(--color-text-primary);
+    }
+
+    .modal-body {
+      font-size: 0.875rem;
+      color: var(--color-text-secondary);
+      line-height: 1.5;
+    }
+
+    .modal-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 0.625rem;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 640px) {
+      .app-shell {
+        padding: 1rem 0.75rem 3rem 0.75rem;
+      }
+
+      .top-bar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .top-bar-stats {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .toolbar-container {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .toolbar-search-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .search-box {
+        max-width: 100%;
+      }
+
+      .create-form {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .btn-primary {
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+
+    <!-- Top Bar Contract: Brand + Live System Metrics + Theme Action -->
+    <header class="top-bar" role="banner">
+      <a href="#" class="top-bar-brand" aria-label="TaskFlow home">
+        <div class="brand-icon-box" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <span>TaskFlow</span>
+      </a>
+
+      <div class="top-bar-stats" aria-label="Quick metrics">
+        <span id="activeCountHeader" class="tabular-nums">0 active</span>
+        <span aria-hidden="true">·</span>
+        <span id="completionPercentHeader" class="tabular-nums">0% done</span>
+      </div>
+
+      <div class="top-bar-actions">
+        <button id="themeToggleBtn" class="theme-toggle-btn" aria-label="Toggle dark/light theme" title="Toggle theme">
+          <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <!-- Sun icon when dark mode, Moon icon when light mode -->
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Metrics & Progress Overview Card -->
+    <section class="overview-card" aria-label="Progress and summary">
+      <div class="overview-header">
+        <h2 class="overview-title">Progress Overview</h2>
+        <div class="overview-stat-group">
+          <span id="progressRatioText" class="tabular-nums stat-metric">0 of 0 completed</span>
+          <span aria-hidden="true">·</span>
+          <span id="progressPercentageText" class="tabular-nums">0%</span>
+        </div>
+      </div>
+
+      <div class="progress-bar-track" role="progressbar" id="progressBar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Task completion percentage">
+        <div class="progress-bar-fill" id="progressBarFill"></div>
+      </div>
+
+      <div class="stat-summary-row">
+        <div class="stat-pill">
+          <span class="stat-pill-label">Total Tasks</span>
+          <span id="metricTotal" class="stat-pill-value tabular-nums">0</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill-label">Remaining Active</span>
+          <span id="metricActive" class="stat-pill-value tabular-nums">0</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill-label">Completed</span>
+          <span id="metricCompleted" class="stat-pill-value tabular-nums">0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Create Task Form -->
+    <section class="create-form-container" aria-label="Create new task">
+      <form id="taskForm" class="create-form" novalidate>
+        <div class="create-input-wrapper">
+          <input
+            type="text"
+            id="taskInput"
+            class="create-input"
+            placeholder="What needs to be accomplished? (Press Enter or click Add)"
+            autocomplete="off"
+            maxlength="200"
+            aria-label="New task title"
+          />
+        </div>
+        <button type="submit" class="btn-primary" id="addTaskBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Add Task</span>
+        </button>
+      </form>
+      <div id="inputError" class="input-error-msg" role="alert" aria-live="polite"></div>
+    </section>
+
+    <!-- Filter Tabs & Real-time Search Toolbar -->
+    <section class="toolbar-container" aria-label="Filtering and searching options">
+      <nav id="filterTabs" class="filter-tabs" role="tablist" aria-label="Task filters">
+        <button type="button" class="filter-tab-btn is-active" data-filter="all" role="tab" aria-selected="true">
+          <span>All</span>
+          <span class="filter-count-badge tabular-nums" id="badgeAll">0</span>
+        </button>
+        <button type="button" class="filter-tab-btn" data-filter="active" role="tab" aria-selected="false">
+          <span>Active</span>
+          <span class="filter-count-badge tabular-nums" id="badgeActive">0</span>
+        </button>
+        <button type="button" class="filter-tab-btn" data-filter="completed" role="tab" aria-selected="false">
+          <span>Completed</span>
+          <span class="filter-count-badge tabular-nums" id="badgeCompleted">0</span>
+        </button>
+      </nav>
+
+      <div class="toolbar-search-actions">
+        <div class="search-box">
+          <span class="search-icon" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </span>
+          <input
+            type="text"
+            id="searchInput"
+            class="search-input"
+            placeholder="Search tasks... (Press /)"
+            aria-label="Search tasks"
+          />
+          <button type="button" id="searchClearBtn" class="search-clear-btn" style="display: none;" aria-label="Clear search input">
+            &times;
+          </button>
+        </div>
+
+        <button type="button" id="clearCompletedBtn" class="btn-secondary btn-danger" disabled aria-label="Clear all completed tasks">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+          <span>Clear Completed</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Task List Container (DOM Event Delegation Target) -->
+    <main class="task-list-wrapper">
+      <ul id="taskList" class="task-list" role="list" aria-label="Tasks list">
+        <!-- Dynamic items populated by reactive state render -->
+      </ul>
+    </main>
+
+    <!-- Keyboard Shortcuts & Status Footer -->
+    <footer class="shortcuts-footer" role="contentinfo">
+      <div class="kbd-shortcut">
+        <span>Press</span> <kbd>/</kbd> <span>to search</span>
+      </div>
+      <div class="kbd-shortcut">
+        <kbd>Double-click</kbd> <span>task or click edit icon</span>
+      </div>
+      <div class="kbd-shortcut">
+        <kbd>Enter</kbd> <span>to save</span> <span aria-hidden="true">·</span> <kbd>Esc</kbd> <span>to cancel</span>
+      </div>
+      <div class="kbd-shortcut">
+        <span id="storageStatusText">Synced with localStorage</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- In-App Confirmation Modal (Accessible & iFrame Safe) -->
+  <div id="confirmModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDesc">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-icon-alert" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </div>
+        <h3 id="modalTitle" class="modal-title">Clear Completed Tasks?</h3>
+      </div>
+      <p id="modalDesc" class="modal-body">
+        Are you sure you want to permanently remove all completed tasks? This action cannot be undone.
+      </p>
+      <div class="modal-actions">
+        <button type="button" id="modalCancelBtn" class="btn-secondary">
+          Cancel
+        </button>
+        <button type="button" id="modalConfirmBtn" class="btn-primary" style="background: var(--color-danger);">
+          Confirm Clear
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       Complete Vanilla JavaScript Architecture (State-Driven & Delegated)
+       ========================================================================== -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* ==========================================================================
+         1. Storage Constants & Seed State
+         ========================================================================== */
+      const STORAGE_KEY = 'taskflow_state_v1';
+      const THEME_KEY = 'taskflow_theme_v1';
+
+      const INITIAL_SEED_TASKS = [
+        {
+          id: 'task-1',
+          title: 'Review quarterly architecture roadmap and system design specs',
+          completed: true,
+          createdAt: Date.now() - 1000 * 60 * 45, // 45 mins ago
+          updatedAt: null
+        },
+        {
+          id: 'task-2',
+          title: 'Refactor DOM event listeners to parent container delegation pattern',
+          completed: false,
+          createdAt: Date.now() - 1000 * 60 * 18, // 18 mins ago
+          updatedAt: null
+        },
+        {
+          id: 'task-3',
+          title: 'Implement localStorage synchronization with try/catch error handling',
+          completed: false,
+          createdAt: Date.now() - 1000 * 60 * 6, // 6 mins ago
+          updatedAt: null
+        },
+        {
+          id: 'task-4',
+          title: 'Audit keyboard accessibility and focus management standards',
+          completed: false,
+          createdAt: Date.now() - 1000 * 60 * 2, // 2 mins ago
+          updatedAt: null
+        }
+      ];
+
+      /* ==========================================================================
+         2. Safe Local Storage Persistence
+         ========================================================================== */
+      function loadPersistedState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (!raw) {
+            return { tasks: INITIAL_SEED_TASKS };
+          }
+          const parsed = JSON.parse(raw);
+          if (!parsed || !Array.isArray(parsed.tasks)) {
+            return { tasks: INITIAL_SEED_TASKS };
+          }
+          return parsed;
+        } catch (err) {
+          console.warn('TaskFlow: Failed to read from localStorage. Fallback to seed tasks.', err);
+          return { tasks: INITIAL_SEED_TASKS };
+        }
+      }
+
+      function persistState(state) {
+        try {
+          const payload = {
+            tasks: state.tasks,
+            lastSavedAt: Date.now()
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+          updateStorageStatusIndicator('Synced');
+        } catch (err) {
+          console.error('TaskFlow: localStorage sync failure.', err);
+          updateStorageStatusIndicator('Sync error');
+        }
+      }
+
+      function updateStorageStatusIndicator(status) {
+        const el = document.getElementById('storageStatusText');
+        if (el) {
+          el.textContent = status === 'Synced' ? 'Synced with localStorage' : 'Storage offline';
+        }
+      }
+
+      /* ==========================================================================
+         3. Reactive Centralized State Store
+         Unidirectional data flow: Action -> setState() -> persist -> render()
+         ========================================================================== */
+      class Store {
+        constructor(initialState) {
+          this.state = Object.freeze({ ...initialState });
+          this.subscribers = [];
+        }
+
+        getState() {
+          return this.state;
+        }
+
+        setState(updater) {
+          const nextPartial = typeof updater === 'function' ? updater(this.state) : updater;
+          this.state = Object.freeze({ ...this.state, ...nextPartial });
+
+          // Auto-persist tasks when tasks collection changes
+          if ('tasks' in nextPartial) {
+            persistState(this.state);
+          }
+
+          // Broadcast to subscribers
+          for (let i = 0; i < this.subscribers.length; i++) {
+            this.subscribers[i](this.state);
+          }
+        }
+
+        subscribe(listener) {
+          this.subscribers.push(listener);
+          return () => {
+            this.subscribers = this.subscribers.filter(fn => fn !== listener);
+          };
+        }
+      }
+
+      // Initialize State
+      const persisted = loadPersistedState();
+      const store = new Store({
+        tasks: persisted.tasks || INITIAL_SEED_TASKS,
+        filter: 'all', // 'all' | 'active' | 'completed'
+        searchQuery: '',
+        editingId: null,
+        validationError: null
+      });
+
+      /* ==========================================================================
+         4. Utility Helpers: Timestamps & Sanitization
+         ========================================================================== */
+      function escapeHtml(str) {
+        if (!str) return '';
+        return str
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function formatRelativeTime(timestamp) {
+        if (!timestamp) return 'Just now';
+        const now = Date.now();
+        const diffMs = now - timestamp;
+        const diffSecs = Math.floor(diffMs / 1000);
+        const diffMins = Math.floor(diffSecs / 60);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+
+        if (diffSecs < 45) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays === 1) return 'Yesterday';
+        if (diffDays < 7) return `${diffDays}d ago`;
+
+        const d = new Date(timestamp);
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      }
+
+      function formatAbsoluteDate(timestamp) {
+        if (!timestamp) return '';
+        return new Date(timestamp).toLocaleString();
+      }
+
+      function highlightQuery(text, query) {
+        const safeText = escapeHtml(text);
+        if (!query || !query.trim()) return safeText;
+        const trimmed = query.trim();
+        const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escaped})`, 'gi');
+        return safeText.replace(regex, '<mark>$1</mark>');
+      }
+
+      /* ==========================================================================
+         5. DOM Elements Cache
+         ========================================================================== */
+      const dom = {
+        html: document.documentElement,
+        themeToggleBtn: document.getElementById('themeToggleBtn'),
+        themeIcon: document.getElementById('themeIcon'),
+        activeCountHeader: document.getElementById('activeCountHeader'),
+        completionPercentHeader: document.getElementById('completionPercentHeader'),
+        progressRatioText: document.getElementById('progressRatioText'),
+        progressPercentageText: document.getElementById('progressPercentageText'),
+        progressBar: document.getElementById('progressBar'),
+        progressBarFill: document.getElementById('progressBarFill'),
+        metricTotal: document.getElementById('metricTotal'),
+        metricActive: document.getElementById('metricActive'),
+        metricCompleted: document.getElementById('metricCompleted'),
+        taskForm: document.getElementById('taskForm'),
+        taskInput: document.getElementById('taskInput'),
+        inputError: document.getElementById('inputError'),
+        filterTabs: document.getElementById('filterTabs'),
+        badgeAll: document.getElementById('badgeAll'),
+        badgeActive: document.getElementById('badgeActive'),
+        badgeCompleted: document.getElementById('badgeCompleted'),
+        searchInput: document.getElementById('searchInput'),
+        searchClearBtn: document.getElementById('searchClearBtn'),
+        clearCompletedBtn: document.getElementById('clearCompletedBtn'),
+        taskList: document.getElementById('taskList'),
+        confirmModal: document.getElementById('confirmModal'),
+        modalCancelBtn: document.getElementById('modalCancelBtn'),
+        modalConfirmBtn: document.getElementById('modalConfirmBtn')
+      };
+
+      /* ==========================================================================
+         6. Theme Management
+         ========================================================================== */
+      function initTheme() {
+        let currentTheme = localStorage.getItem(THEME_KEY);
+        if (!currentTheme) {
+          currentTheme = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        setTheme(currentTheme);
+      }
+
+      function setTheme(theme) {
+        dom.html.setAttribute('data-theme', theme);
+        try {
+          localStorage.setItem(THEME_KEY, theme);
+        } catch (e) {
+          // ignore
+        }
+        updateThemeIcon(theme);
+      }
+
+      function updateThemeIcon(theme) {
+        if (theme === 'light') {
+          // Moon icon
+          dom.themeIcon.innerHTML = `
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          `;
+        } else {
+          // Sun icon
+          dom.themeIcon.innerHTML = `
+            <circle cx="12" cy="12" r="5"></circle>
+            <line x1="12" y1="1" x2="12" y2="3"></line>
+            <line x1="12" y1="21" x2="12" y2="23"></line>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line x1="1" y1="12" x2="3" y2="12"></line>
+            <line x1="21" y1="12" x2="23" y2="12"></line>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+          `;
+        }
+      }
+
+      dom.themeToggleBtn.addEventListener('click', () => {
+        const current = dom.html.getAttribute('data-theme');
+        const next = current === 'light' ? 'dark' : 'light';
+        setTheme(next);
+      });
+
+      /* ==========================================================================
+         7. CRUD Actions
+         ========================================================================== */
+      function addTask(rawTitle) {
+        const title = rawTitle.trim();
+
+        // 1. Empty validation
+        if (!title) {
+          store.setState({ validationError: 'Task title cannot be empty.' });
+          dom.taskInput.focus();
+          return false;
+        }
+
+        // 2. Duplicate validation (case-insensitive)
+        const state = store.getState();
+        const isDuplicate = state.tasks.some(
+          t => t.title.trim().toLowerCase() === title.toLowerCase()
+        );
+
+        if (isDuplicate) {
+          store.setState({ validationError: 'A task with this exact title already exists.' });
+          dom.taskInput.focus();
+          return false;
+        }
+
+        // 3. Create task entity
+        const newTask = {
+          id: 'task_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7),
+          title: title,
+          completed: false,
+          createdAt: Date.now(),
+          updatedAt: null
+        };
+
+        store.setState(prev => ({
+          tasks: [newTask, ...prev.tasks],
+          validationError: null
+        }));
+
+        dom.taskInput.value = '';
+        dom.taskInput.focus();
+        return true;
+      }
+
+      function toggleTask(id) {
+        store.setState(prev => ({
+          tasks: prev.tasks.map(t =>
+            t.id === id ? { ...t, completed: !t.completed, updatedAt: Date.now() } : t
+          )
+        }));
+      }
+
+      function startEdit(id) {
+        store.setState({ editingId: id, validationError: null });
+      }
+
+      function cancelEdit() {
+        store.setState({ editingId: null, validationError: null });
+      }
+
+      function saveEdit(id, newTitle) {
+        const title = newTitle.trim();
+        if (!title) {
+          store.setState({ validationError: 'Task title cannot be empty.' });
+          return false;
+        }
+
+        const state = store.getState();
+        const isDuplicate = state.tasks.some(
+          t => t.id !== id && t.title.trim().toLowerCase() === title.toLowerCase()
+        );
+
+        if (isDuplicate) {
+          store.setState({ validationError: 'Another task with this title already exists.' });
+          return false;
+        }
+
+        store.setState(prev => ({
+          tasks: prev.tasks.map(t =>
+            t.id === id ? { ...t, title: title, updatedAt: Date.now() } : t
+          ),
+          editingId: null,
+          validationError: null
+        }));
+        return true;
+      }
+
+      function deleteTaskWithAnimation(id, targetElement) {
+        // Smooth CSS exit transition
+        if (targetElement) {
+          targetElement.classList.add('is-deleting');
+          setTimeout(() => {
+            store.setState(prev => ({
+              tasks: prev.tasks.filter(t => t.id !== id),
+              editingId: prev.editingId === id ? null : prev.editingId
+            }));
+          }, 180);
+        } else {
+          store.setState(prev => ({
+            tasks: prev.tasks.filter(t => t.id !== id),
+            editingId: prev.editingId === id ? null : prev.editingId
+          }));
+        }
+      }
+
+      function clearCompletedTasks() {
+        store.setState(prev => ({
+          tasks: prev.tasks.filter(t => !t.completed),
+          editingId: null
+        }));
+      }
+
+      /* ==========================================================================
+         8. DOM Event Delegation on #taskList Parent Container
+         Attaches a single click, keydown, and dblclick listener to handle all actions
+         ========================================================================== */
+      // 1. Delegated Click Listener
+      dom.taskList.addEventListener('click', (e) => {
+        const actionTarget = e.target.closest('[data-action]');
+        if (!actionTarget) return;
+
+        const action = actionTarget.dataset.action;
+        const taskItem = actionTarget.closest('.task-item');
+        const taskId = taskItem ? taskItem.dataset.id : null;
+
+        if (!taskId && action !== 'clear-search' && action !== 'seed-samples') return;
+
+        switch (action) {
+          case 'toggle':
+            toggleTask(taskId);
+            break;
+
+          case 'edit':
+            startEdit(taskId);
+            break;
+
+          case 'save': {
+            const input = taskItem.querySelector('.inline-edit-input');
+            if (input) {
+              saveEdit(taskId, input.value);
+            }
+            break;
+          }
+
+          case 'cancel':
+            cancelEdit();
+            break;
+
+          case 'delete':
+            deleteTaskWithAnimation(taskId, taskItem);
+            break;
+
+          case 'clear-search':
+            store.setState({ searchQuery: '' });
+            dom.searchInput.value = '';
+            dom.searchInput.focus();
+            break;
+
+          case 'seed-samples':
+            store.setState({ tasks: INITIAL_SEED_TASKS });
+            break;
+        }
+      });
+
+      // 2. Delegated Double-Click Listener for Instant Inline Editing
+      dom.taskList.addEventListener('dblclick', (e) => {
+        const titleEl = e.target.closest('.task-title');
+        if (!titleEl) return;
+        const taskItem = titleEl.closest('.task-item');
+        if (!taskItem) return;
+        const taskId = taskItem.dataset.id;
+        if (taskId) {
+          startEdit(taskId);
+        }
+      });
+
+      // 3. Delegated Keydown Listener for Inline Edit Fields & Keyboard Navigation
+      dom.taskList.addEventListener('keydown', (e) => {
+        const taskItem = e.target.closest('.task-item');
+        const taskId = taskItem ? taskItem.dataset.id : null;
+
+        // Handling keys inside inline edit input
+        if (e.target.classList.contains('inline-edit-input')) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEdit(taskId, e.target.value);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelEdit();
+          }
+        }
+
+        // Handling spacebar or enter on toggle button
+        if (e.target.dataset.action === 'toggle' && (e.key === ' ' || e.key === 'Enter')) {
+          e.preventDefault();
+          toggleTask(taskId);
+        }
+      });
+
+      /* ==========================================================================
+         9. Toolbar & Form Event Listeners
+         ========================================================================== */
+      // Form submit (Add task)
+      dom.taskForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        addTask(dom.taskInput.value);
+      });
+
+      // Real-time error clearance on typing in create input
+      dom.taskInput.addEventListener('input', () => {
+        if (store.getState().validationError) {
+          store.setState({ validationError: null });
+        }
+      });
+
+      // Tab-based filtering event delegation
+      dom.filterTabs.addEventListener('click', (e) => {
+        const tabBtn = e.target.closest('[data-filter]');
+        if (!tabBtn) return;
+        const filter = tabBtn.dataset.filter;
+        if (filter) {
+          store.setState({ filter });
+        }
+      });
+
+      // Real-time search query filtering
+      dom.searchInput.addEventListener('input', (e) => {
+        const val = e.target.value;
+        store.setState({ searchQuery: val });
+        dom.searchClearBtn.style.display = val ? 'flex' : 'none';
+      });
+
+      // Clear search button click
+      dom.searchClearBtn.addEventListener('click', () => {
+        dom.searchInput.value = '';
+        dom.searchClearBtn.style.display = 'none';
+        store.setState({ searchQuery: '' });
+        dom.searchInput.focus();
+      });
+
+      // Bulk Clear Completed with In-App Confirmation Modal
+      dom.clearCompletedBtn.addEventListener('click', () => {
+        const state = store.getState();
+        const completedCount = state.tasks.filter(t => t.completed).length;
+        if (completedCount === 0) return;
+
+        // Show accessible in-app modal
+        dom.confirmModal.classList.add('is-visible');
+        dom.modalConfirmBtn.focus();
+      });
+
+      dom.modalCancelBtn.addEventListener('click', () => {
+        dom.confirmModal.classList.remove('is-visible');
+        dom.clearCompletedBtn.focus();
+      });
+
+      dom.modalConfirmBtn.addEventListener('click', () => {
+        clearCompletedTasks();
+        dom.confirmModal.classList.remove('is-visible');
+      });
+
+      // Close modal on Escape or click outside
+      dom.confirmModal.addEventListener('click', (e) => {
+        if (e.target === dom.confirmModal) {
+          dom.confirmModal.classList.remove('is-visible');
+        }
+      });
+
+      window.addEventListener('keydown', (e) => {
+        // Modal escape handling
+        if (e.key === 'Escape' && dom.confirmModal.classList.contains('is-visible')) {
+          dom.confirmModal.classList.remove('is-visible');
+          return;
+        }
+
+        // Global shortcut '/' to focus search input (if not actively editing an input)
+        const isEditing = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+        if (e.key === '/' && !isEditing) {
+          e.preventDefault();
+          dom.searchInput.focus();
+          dom.searchInput.select();
+        }
+      });
+
+      /* ==========================================================================
+         10. Rendering Engine (State -> DOM Projection)
+         ========================================================================== */
+      function render(state) {
+        const total = state.tasks.length;
+        const completed = state.tasks.filter(t => t.completed).length;
+        const active = total - completed;
+        const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+        // 1. Update Header & Overview Metrics
+        dom.activeCountHeader.textContent = `${active} active`;
+        dom.completionPercentHeader.textContent = `${percent}% done`;
+
+        dom.progressRatioText.textContent = `${completed} of ${total} completed`;
+        dom.progressPercentageText.textContent = `${percent}%`;
+        dom.progressBarFill.style.width = `${percent}%`;
+        dom.progressBar.setAttribute('aria-valuenow', percent);
+
+        dom.metricTotal.textContent = total;
+        dom.metricActive.textContent = active;
+        dom.metricCompleted.textContent = completed;
+
+        // 2. Update Filter Tab Badges & Active State
+        dom.badgeAll.textContent = total;
+        dom.badgeActive.textContent = active;
+        dom.badgeCompleted.textContent = completed;
+
+        const tabs = dom.filterTabs.querySelectorAll('.filter-tab-btn');
+        tabs.forEach(tab => {
+          const isActive = tab.dataset.filter === state.filter;
+          tab.classList.toggle('is-active', isActive);
+          tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        // 3. Update Clear Completed Button
+        dom.clearCompletedBtn.disabled = completed === 0;
+        dom.clearCompletedBtn.querySelector('span').textContent =
+          completed > 0 ? `Clear Completed (${completed})` : 'Clear Completed';
+
+        // 4. Update Validation Error
+        if (state.validationError) {
+          dom.inputError.textContent = state.validationError;
+          dom.inputError.style.display = 'flex';
+        } else {
+          dom.inputError.textContent = '';
+          dom.inputError.style.display = 'none';
+        }
+
+        // 5. Filter & Search Tasks
+        let filteredTasks = state.tasks;
+
+        if (state.filter === 'active') {
+          filteredTasks = filteredTasks.filter(t => !t.completed);
+        } else if (state.filter === 'completed') {
+          filteredTasks = filteredTasks.filter(t => t.completed);
+        }
+
+        const query = state.searchQuery.trim().toLowerCase();
+        if (query) {
+          filteredTasks = filteredTasks.filter(t => t.title.toLowerCase().includes(query));
+        }
+
+        // 6. Render Task Items or Empty State
+        if (filteredTasks.length === 0) {
+          dom.taskList.innerHTML = renderEmptyState(state, total, query);
+          return;
+        }
+
+        // Generate Task Rows
+        dom.taskList.innerHTML = filteredTasks.map(task => renderTaskItem(task, state)).join('');
+
+        // If an item is in editing mode, auto-focus its input
+        if (state.editingId) {
+          const editInput = dom.taskList.querySelector(`.task-item[data-id="${state.editingId}"] .inline-edit-input`);
+          if (editInput) {
+            editInput.focus();
+            editInput.select();
+          }
+        }
+      }
+
+      function renderTaskItem(task, state) {
+        const isEditing = state.editingId === task.id;
+        const isDone = task.completed;
+        const relativeTime = formatRelativeTime(task.createdAt);
+        const exactTime = formatAbsoluteDate(task.createdAt);
+        const highlightedTitle = highlightQuery(task.title, state.searchQuery);
+
+        if (isEditing) {
+          return `
+            <li class="task-item is-editing" data-id="${task.id}">
+              <div class="task-inline-edit">
+                <input
+                  type="text"
+                  class="inline-edit-input"
+                  value="${escapeHtml(task.title)}"
+                  maxlength="200"
+                  aria-label="Edit task title"
+                />
+                <div class="inline-edit-actions">
+                  <button type="button" class="btn-sm btn-save" data-action="save">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>Save</span>
+                  </button>
+                  <button type="button" class="btn-sm btn-cancel" data-action="cancel">
+                    <span>Cancel</span>
+                  </button>
+                  <span style="font-size: 0.6875rem; color: var(--color-text-muted); margin-left: 0.25rem;">
+                    (Press Enter to save, Esc to cancel)
+                  </span>
+                </div>
+              </div>
+            </li>
+          `;
+        }
+
+        return `
+          <li class="task-item ${isDone ? 'is-completed' : ''}" data-id="${task.id}">
+            <!-- Toggle Checkbox Action -->
+            <button
+              type="button"
+              class="task-toggle-btn"
+              data-action="toggle"
+              aria-label="${isDone ? 'Mark task active' : 'Mark task completed'}"
+              aria-pressed="${isDone ? 'true' : 'false'}"
+            >
+              ${isDone ? `
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              ` : ''}
+            </button>
+
+            <!-- Task Main Content -->
+            <div class="task-content">
+              <span class="task-title" data-action="edit" title="Double click or click to edit">
+                ${highlightedTitle}
+              </span>
+              <div class="task-metadata">
+                <span class="task-status-text">${isDone ? 'Completed' : 'Active'}</span>
+                <span class="task-metadata-sep" aria-hidden="true">·</span>
+                <span class="tabular-nums" title="${exactTime}">Created ${relativeTime}</span>
+                ${task.updatedAt ? `
+                  <span class="task-metadata-sep" aria-hidden="true">·</span>
+                  <span class="tabular-nums" title="${formatAbsoluteDate(task.updatedAt)}">Edited ${formatRelativeTime(task.updatedAt)}</span>
+                ` : ''}
+              </div>
+            </div>
+
+            <!-- Task Row Action Buttons -->
+            <div class="task-actions">
+              <button
+                type="button"
+                class="icon-action-btn"
+                data-action="edit"
+                title="Edit task (or double-click)"
+                aria-label="Edit task"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="icon-action-btn btn-delete"
+                data-action="delete"
+                title="Delete task"
+                aria-label="Delete task"
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
+            </div>
+          </li>
+        `;
+      }
+
+      function renderEmptyState(state, totalTasks, query) {
+        if (query) {
+          return `
+            <li class="empty-state">
+              <div class="empty-state-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </div>
+              <h4 class="empty-state-heading">No matching tasks found</h4>
+              <p class="empty-state-text">
+                No items match "<strong>${escapeHtml(query)}</strong>". Try adjusting your search query or clear the filter.
+              </p>
+              <button type="button" class="btn-secondary" data-action="clear-search" style="margin-top: 0.5rem;">
+                Clear Search Query
+              </button>
+            </li>
+          `;
+        }
+
+        if (totalTasks === 0) {
+          return `
+            <li class="empty-state">
+              <div class="empty-state-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="9 11 12 14 22 4"></polyline>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+              </div>
+              <h4 class="empty-state-heading">No tasks yet</h4>
+              <p class="empty-state-text">
+                Your task list is completely clear. Type a task title above and press Enter to begin organizing.
+              </p>
+              <button type="button" class="btn-secondary" data-action="seed-samples" style="margin-top: 0.5rem;">
+                Load Example Tasks
+              </button>
+            </li>
+          `;
+        }
+
+        if (state.filter === 'active') {
+          return `
+            <li class="empty-state">
+              <div class="empty-state-icon" style="color: var(--color-success);" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+              </div>
+              <h4 class="empty-state-heading">All caught up!</h4>
+              <p class="empty-state-text">
+                You have finished all active tasks. Great job! Add new tasks or review completed items.
+              </p>
+            </li>
+          `;
+        }
+
+        if (state.filter === 'completed') {
+          return `
+            <li class="empty-state">
+              <div class="empty-state-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 14 14"></polyline>
+                </svg>
+              </div>
+              <h4 class="empty-state-heading">No completed tasks</h4>
+              <p class="empty-state-text">
+                Tasks you mark as completed will appear here for reference and tracking.
+              </p>
+            </li>
+          `;
+        }
+
+        return '';
+      }
+
+      /* ==========================================================================
+         11. Lifecycle Initialization & Periodic Relative Time Refresh
+         ========================================================================== */
+      initTheme();
+
+      // Subscribe render function to state changes
+      store.subscribe(render);
+
+      // Initial Render
+      render(store.getState());
+
+      // Periodically refresh timestamps every 30 seconds so "Just now" progresses dynamically
+      setInterval(() => {
+        const state = store.getState();
+        // Only trigger re-render if not actively in inline editing mode to avoid disrupting input focus
+        if (!state.editingId) {
+          render(state);
+        }
+      }, 30000);
+
+    })();
+  </script>
+</body>
+</html>
